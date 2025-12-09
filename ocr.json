@@ -1,0 +1,270 @@
+{
+  "name": "images to docs (NO tables yet)",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1CchAPr0FQRuMM9rUZwYH65VIgv7nBM3X",
+          "mode": "list",
+          "cachedResultName": "OCR",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1CchAPr0FQRuMM9rUZwYH65VIgv7nBM3X"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "447f1d30-a9c0-4a71-810b-ee45bc16e2cd",
+      "name": "Triggers when something was created",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "szLc3bZ5m66uacgU",
+          "name": "ducnguyen0066@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {
+          "binaryPropertyName": "datasss"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        224,
+        0
+      ],
+      "id": "e9381264-6b14-43ce-8789-56345ffd3b38",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "szLc3bZ5m66uacgU",
+          "name": "ducnguyen0066@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ocr.space/parse/image",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "K89413881788957"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "language",
+              "value": "ger"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "datasss"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        448,
+        0
+      ],
+      "id": "b4d41a0a-0da2-40c2-b1c0-793d1416f0ce",
+      "name": "Space OCR"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "85051720-e30c-43d1-9e6b-40d7f835c490",
+              "name": "final_data",
+              "value": "={{ $json.ParsedResults[0].ParsedText }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        0
+      ],
+      "id": "c9527a79-9d2c-46f4-921f-b3b2d0f215de",
+      "name": "Extracts only Text"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "formatted_text",
+        "binaryPropertyName": "final_data1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "3467d541-c7ee-44e8-99a9-c171f9eaca7c",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "final_data1",
+        "name": "bro_plz",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "45051bc5-82b1-461b-9dcf-42ddb3b5179c",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "szLc3bZ5m66uacgU",
+          "name": "ducnguyen0066@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Original-Text holen\nlet rawText = $json[\"final_data\"] || \"\";\n\n// 1️⃣ Escape-Sequenzen (\\r\\n, \\n, \\r) in echte Zeilenumbrüche umwandeln\nlet cleanText = rawText\n  .replace(/\\\\r\\\\n|\\\\n|\\\\r/g, '\\n')   // OCR oder JSON-Escape\n  .replace(/\\r\\n|\\r|\\n/g, '\\n');      // echte Windows/Unix Zeilenenden\n\n// 2️⃣ Doppelte oder zu viele Leerzeichen reduzieren\ncleanText = cleanText.replace(/[ \\t]+/g, ' ');\n\n// 3️⃣ Nach bestimmten Mustern Zeilenumbrüche wiederherstellen\ncleanText = cleanText\n  .replace(/(€)(\\s*[A-Z])/g, '$1\\n$2')             // nach Euro-Zeichen neuer Absatz\n  .replace(/(Invoice|Customer|Service|Total|Amount|Date|Terms|Please|Bank)/g, '\\n$1') // logische Breaks\n  .replace(/([A-Za-z0-9])(\\s)([A-Z][a-z])/g, '$1\\n$3'); // Zeilen neu umbrechen bei Großbuchstaben-Beginn\n\n// 4️⃣ Mehrere aufeinanderfolgende Zeilenumbrüche reduzieren\ncleanText = cleanText.replace(/\\n{3,}/g, '\\n\\n');\n\n// 5️⃣ Zusätzliche Trims am Anfang und Ende\ncleanText = cleanText.trim();\n\n// 6️⃣ Ausgabe zurückgeben\nreturn [{ formatted_text: cleanText }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        0
+      ],
+      "id": "bc7ebd45-da07-47c2-82b3-d5bd6d0ece3a",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Triggers when something was created": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Space OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Space OCR": {
+      "main": [
+        [
+          {
+            "node": "Extracts only Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extracts only Text": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "10b6cff5-d041-4e37-9413-3c2082f4daa7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e7f6140b0c370a3fbf2dfb84728facd0cff7eef80d4c4c944492dca59d046dbd"
+  },
+  "id": "phZxp9UaxfG46FSf",
+  "tags": []
+}
